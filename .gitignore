@@ -1,0 +1,22 @@
+# Environment variables — NEVER commit these
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# dbt
+commerce_dbt/target/
+commerce_dbt/dbt_packages/
+commerce_dbt/logs/
+commerce_dbt/.user.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
