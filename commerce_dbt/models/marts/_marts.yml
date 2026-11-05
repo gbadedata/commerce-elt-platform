@@ -1,0 +1,126 @@
+version: 2
+models:
+- name: dim_customers
+  description: Customers trusted for reporting. Personal data is excluded.
+  meta:
+    owner: customer-data
+    grain: One row per customer
+    contains_pii: false
+    consumers:
+    - Sales reporting
+  columns:
+  - name: customer_id
+    description: Unique customer key.
+    data_tests:
+    - not_null:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_DIM_CUSTOMER_KEY_NOT_NULL
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: The customer dimension has no null keys.
+    - unique:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_DIM_CUSTOMER_KEY_UNIQUE
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: The customer dimension has no duplicate keys.
+  - name: country
+    description: ISO country code.
+  - name: created_at
+    description: When the customer was created, in UTC.
+- name: dim_products
+  description: Products trusted for reporting.
+  meta:
+    owner: merchandising-data
+    grain: One row per product
+    contains_pii: false
+    consumers:
+    - Sales reporting
+  columns:
+  - name: product_id
+    description: Unique product key.
+    data_tests:
+    - not_null:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_DIM_PRODUCT_KEY_NOT_NULL
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: The product dimension has no null keys.
+    - unique:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_DIM_PRODUCT_KEY_UNIQUE
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: The product dimension has no duplicate keys.
+  - name: cost_price
+    description: Unit cost to the business.
+  - name: list_price
+    description: Unit price before discount.
+- name: fct_order_items
+  description: Order lines trusted for revenue reporting.
+  meta:
+    owner: finance-data
+    grain: One row per order line
+    contains_pii: false
+    consumers:
+    - Sales reporting
+    - Finance reconciliation
+  columns:
+  - name: order_item_id
+    description: Unique order line key.
+    data_tests:
+    - unique:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_FCT_ITEM_KEY_UNIQUE
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: The fact table has no duplicate order lines.
+  - name: product_id
+    description: Product sold.
+    data_tests:
+    - relationships:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_FCT_PRODUCT_FK
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: Every fact row has a trusted product.
+        arguments:
+          to: ref('dim_products')
+          field: product_id
+  - name: customer_id
+    description: Customer, empty for a guest checkout.
+    data_tests:
+    - relationships:
+        config:
+          severity: error
+          meta:
+            rule_id: GATE_FCT_CUSTOMER_FK
+            dimension: mart_gate
+            dq_severity: critical
+            owner: data-engineering
+            description: Every named customer on a fact row is trusted.
+        arguments:
+          to: ref('dim_customers')
+          field: customer_id
+  - name: net_amount
+    description: Quantity times unit price, less discount.
+    meta:
+      business_term: Net Order Value

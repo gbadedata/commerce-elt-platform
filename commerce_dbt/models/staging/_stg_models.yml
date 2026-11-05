@@ -1,0 +1,306 @@
+version: 2
+models:
+- name: stg_customers
+  description: Customer records, typed but not filtered. Contains personal data, so it is not exposed to reporting roles.
+  meta:
+    owner: customer-data
+    grain: One row per received customer record
+    contains_pii: true
+  columns:
+  - name: src_row_id
+    description: Row identifier from the source feed, used to trace any finding back to its record.
+  - name: customer_id
+    description: Business key for a customer.
+    data_tests:
+    - dq_not_null:
+        config:
+          alias: dqf_cust_id_not_null
+          severity: warn
+          meta:
+            rule_id: CUST_ID_NOT_NULL
+            dimension: completeness
+            dq_severity: critical
+            owner: customer-data
+            description: Every customer record has a customer ID.
+    - dq_unique:
+        config:
+          alias: dqf_cust_id_unique
+          severity: warn
+          meta:
+            rule_id: CUST_ID_UNIQUE
+            dimension: uniqueness
+            dq_severity: critical
+            owner: customer-data
+            description: A customer ID belongs to only one record.
+  - name: email
+    description: Contact email address.
+    meta:
+      pii: true
+    data_tests:
+    - dq_regex:
+        config:
+          alias: dqf_cust_email_format
+          severity: warn
+          meta:
+            rule_id: CUST_EMAIL_FORMAT
+            dimension: validity
+            dq_severity: warning
+            owner: customer-data
+            description: Email addresses have a valid basic format.
+        arguments:
+          pattern: ^[^@ ]+@[^@ ]+[.][^@ ]+$
+  - name: first_name
+    description: Given name.
+    meta:
+      pii: true
+  - name: last_name
+    description: Family name.
+    meta:
+      pii: true
+  - name: country
+    description: ISO country code.
+    data_tests:
+    - dq_accepted_values:
+        config:
+          alias: dqf_cust_country_accepted
+          severity: warn
+          meta:
+            rule_id: CUST_COUNTRY_ACCEPTED
+            dimension: validity
+            dq_severity: warning
+            owner: customer-data
+            description: Country is one of the markets served.
+        arguments:
+          values:
+          - NG
+          - GH
+          - KE
+          - ZA
+          - GB
+          - US
+  data_tests:
+  - dq_fail_when:
+      config:
+        alias: dqf_cust_created_not_future
+        severity: warn
+        meta:
+          rule_id: CUST_CREATED_NOT_FUTURE
+          dimension: validity
+          dq_severity: warning
+          owner: customer-data
+          description: A customer cannot be created in the future.
+      arguments:
+        condition: created_at > {{ dq_now() }}
+- name: stg_products
+  description: Product records, typed but not filtered.
+  meta:
+    owner: merchandising-data
+    grain: One row per received product record
+    contains_pii: false
+  columns:
+  - name: src_row_id
+    description: Row identifier from the source feed.
+  - name: product_id
+    description: Business key for a product.
+    data_tests:
+    - dq_unique:
+        config:
+          alias: dqf_prod_id_unique
+          severity: warn
+          meta:
+            rule_id: PROD_ID_UNIQUE
+            dimension: uniqueness
+            dq_severity: critical
+            owner: merchandising-data
+            description: A product ID belongs to only one record.
+  - name: cost_price
+    description: Unit cost to the business.
+  - name: list_price
+    description: Unit price before discount.
+  data_tests:
+  - dq_fail_when:
+      config:
+        alias: dqf_prod_cost_positive
+        severity: warn
+        meta:
+          rule_id: PROD_COST_POSITIVE
+          dimension: validity
+          dq_severity: critical
+          owner: merchandising-data
+          description: A product has a cost above zero, or margin cannot be calculated.
+      arguments:
+        condition: cost_price <= 0
+  - dq_fail_when:
+      config:
+        alias: dqf_prod_price_ge_cost
+        severity: warn
+        meta:
+          rule_id: PROD_PRICE_GE_COST
+          dimension: consistency
+          dq_severity: warning
+          owner: merchandising-data
+          description: List price is not below cost.
+      arguments:
+        condition: list_price < cost_price
+- name: stg_orders
+  description: Order records, typed but not filtered.
+  meta:
+    owner: sales-data
+    grain: One row per received order record
+    contains_pii: false
+  columns:
+  - name: src_row_id
+    description: Row identifier from the source feed.
+  - name: order_id
+    description: Business key for an order.
+    data_tests:
+    - dq_unique:
+        config:
+          alias: dqf_ord_id_unique
+          severity: warn
+          meta:
+            rule_id: ORD_ID_UNIQUE
+            dimension: uniqueness
+            dq_severity: critical
+            owner: sales-data
+            description: An order ID belongs to only one record.
+  - name: customer_id
+    description: Customer who placed the order. Empty for a guest checkout, which is valid.
+    data_tests:
+    - dq_foreign_key:
+        config:
+          alias: dqf_ord_customer_fk
+          severity: warn
+          meta:
+            rule_id: ORD_CUSTOMER_FK
+            dimension: integrity
+            dq_severity: critical
+            owner: sales-data
+            description: An order customer exists in the customer feed.
+        arguments:
+          to: ref("stg_customers")
+          field: customer_id
+  - name: status
+    description: Order lifecycle status.
+    data_tests:
+    - dq_accepted_values:
+        config:
+          alias: dqf_ord_status_accepted
+          severity: warn
+          meta:
+            rule_id: ORD_STATUS_ACCEPTED
+            dimension: validity
+            dq_severity: warning
+            owner: sales-data
+            description: Status is a known lifecycle state.
+        arguments:
+          values:
+          - pending
+          - confirmed
+          - processing
+          - shipped
+          - delivered
+          - cancelled
+  data_tests:
+  - dq_fail_when:
+      config:
+        alias: dqf_ord_created_parseable
+        severity: warn
+        meta:
+          rule_id: ORD_CREATED_PARSEABLE
+          dimension: validity
+          dq_severity: critical
+          owner: sales-data
+          description: The order date can be read as a timestamp.
+      arguments:
+        condition: created_at_raw is not null and created_at is null
+  - dq_fail_when:
+      config:
+        alias: dqf_ord_updated_after_created
+        severity: warn
+        meta:
+          rule_id: ORD_UPDATED_AFTER_CREATED
+          dimension: consistency
+          dq_severity: warning
+          owner: sales-data
+          description: An order is not updated before it was created.
+      arguments:
+        condition: updated_at < created_at
+  - dq_min_rows:
+      config:
+        alias: dqf_ord_min_volume
+        severity: warn
+        meta:
+          rule_id: ORD_MIN_VOLUME
+          dimension: volume
+          dq_severity: warning
+          owner: sales-data
+          description: An order batch has at least the expected number of rows.
+      arguments:
+        min_rows: '{{ var(''dq_orders_min_rows'') }}'
+- name: stg_order_items
+  description: Order lines, typed but not filtered.
+  meta:
+    owner: sales-data
+    grain: One row per received order line
+    contains_pii: false
+  columns:
+  - name: src_row_id
+    description: Row identifier from the source feed.
+  - name: order_id
+    description: Parent order.
+    data_tests:
+    - dq_foreign_key:
+        config:
+          alias: dqf_item_order_fk
+          severity: warn
+          meta:
+            rule_id: ITEM_ORDER_FK
+            dimension: integrity
+            dq_severity: critical
+            owner: sales-data
+            description: An order line points to a received order.
+        arguments:
+          to: ref('stg_orders')
+          field: order_id
+  - name: product_id
+    description: Product sold.
+    data_tests:
+    - dq_foreign_key:
+        config:
+          alias: dqf_item_product_fk
+          severity: warn
+          meta:
+            rule_id: ITEM_PRODUCT_FK
+            dimension: integrity
+            dq_severity: critical
+            owner: sales-data
+            description: An order line points to a received product.
+        arguments:
+          to: ref('stg_products')
+          field: product_id
+  data_tests:
+  - dq_fail_when:
+      config:
+        alias: dqf_item_qty_positive
+        severity: warn
+        meta:
+          rule_id: ITEM_QTY_POSITIVE
+          dimension: validity
+          dq_severity: critical
+          owner: sales-data
+          description: A sold quantity is above zero.
+      arguments:
+        condition: quantity <= 0
+  - dq_fail_when:
+      config:
+        alias: dqf_item_discount_le_price
+        severity: warn
+        meta:
+          rule_id: ITEM_DISCOUNT_LE_PRICE
+          dimension: consistency
+          dq_severity: warning
+          owner: finance-data
+          description: A discount does not exceed the unit price.
+      arguments:
+        condition: discount_amount > unit_price

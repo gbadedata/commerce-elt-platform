@@ -1,0 +1,23 @@
+# Business definitions, each with one accountable owner and one physical location.
+# tests/test_pipeline.py fails if a term points at a column that does not exist.
+terms:
+  - term: Net Order Value
+    owner: finance-data
+    definition: Quantity multiplied by unit price, less the discount, for one order line.
+    location: fct_order_items.net_amount
+  - term: Guest Checkout
+    owner: sales-data
+    definition: An order placed without a customer account. An empty customer ID is valid here and is not a defect.
+    location: fct_order_items.customer_id
+  - term: Trusted Customer
+    owner: customer-data
+    definition: A customer record with a non-null ID, keeping the first record received when an ID repeats.
+    location: dim_customers.customer_id
+  - term: Trusted Product
+    owner: merchandising-data
+    definition: A product with a unique ID and a cost above zero.
+    location: dim_products.product_id
+  - term: Quarantined Row
+    owner: data-engineering
+    definition: A received row kept out of marts, stored with the rule that rejected it so that it can be fixed and replayed.
+    location: quarantine_rows.reject_reason
