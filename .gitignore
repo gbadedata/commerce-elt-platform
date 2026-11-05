@@ -20,3 +20,13 @@ Thumbs.db
 
 # IDE
 .vscode/settings.json
+# Local data and generated reports
+data/
+reports/*.json
+*.duckdb
+*.duckdb.wal
+.venv/
+commerce_dbt/target_sf/
+reports/*.html
+*.pem
+*.p8

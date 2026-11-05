@@ -1,0 +1,10 @@
+version: 2
+sources:
+  - name: raw
+    schema: "{{ 'RAW' if target.type == 'snowflake' else 'raw' }}"
+    description: Untyped batches exactly as received. Every column is text.
+    tables:
+      - name: customers
+      - name: products
+      - name: orders
+      - name: order_items

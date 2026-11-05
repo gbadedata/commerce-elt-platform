@@ -1,0 +1,26 @@
+version: 2
+models:
+- name: int_customers_checked
+  description: Customers with a reject reason applied.
+  meta:
+    owner: customer-data
+    grain: One row per received customer record
+    contains_pii: true
+- name: int_products_checked
+  description: Products with a reject reason applied.
+  meta:
+    owner: merchandising-data
+    grain: One row per received product record
+    contains_pii: false
+- name: int_orders_checked
+  description: Orders with a reject reason applied.
+  meta:
+    owner: sales-data
+    grain: One row per received order record
+    contains_pii: false
+- name: int_order_items_checked
+  description: Order lines with a reject reason applied, including rejected parents.
+  meta:
+    owner: sales-data
+    grain: One row per received order line
+    contains_pii: false

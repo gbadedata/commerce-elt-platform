@@ -1,0 +1,15 @@
+version: 2
+models:
+- name: quarantine_rows
+  description: Every rejected row with the rule that rejected it.
+  meta:
+    owner: data-engineering
+    grain: One row per rejected source row
+    contains_pii: false
+  columns:
+  - name: entity
+    description: Source entity.
+  - name: src_row_id
+    description: Row identifier from the source feed.
+  - name: reject_reason
+    description: Rule that rejected the row.
